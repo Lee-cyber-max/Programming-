@@ -1,0 +1,244 @@
+Main Q1
+
+public class Main {
+    public static void main(String[] args) {
+        
+        
+        String[] products = {"Cozy Nights Monarch", "Restonic Barbados", "Sealy Phuket"};
+
+        
+        // Row 0 Cozy:     25, 18, 20  -> Total = 63
+        // Row 1 Restonic: 15, 10, 12  -> Total = 37
+        // Row 2 Sealy:    18, 15, 20  -> Total = 53
+        int[][] sales = {{25, 18, 20}, {15, 10, 12}, {18, 15, 20}};
+
+       
+        for (int i = 0; i < products.length; i++) {
+            for (int month = 0; month < 3; month++) {
+                System.out.println("Enter number of sales for month " + (month + 1)
+                        + " for " + products[i] + " mattress: " + sales[i][month]);
+            }
+            System.out.println();
+        }
+
+        Product product = new Product(products, sales);
+        PrintProduct printer = new PrintProduct(product);
+        printer.PrintReport();
+    }
+}
+
+Product.java
+
+public class Product implements IProducts {
+    private String[] productNames;
+    private int[][] sales;         // e.g. {{25,18,20},{15,10,12},{18,15,20}}
+    private int[] productTotals;   // will become {63, 37, 53}
+
+    public Product(String[] productNames, int[][] sales) {
+        this.productNames = productNames;
+        this.sales = sales;
+        this.productTotals = new int[productNames.length];
+        for (int i = 0; i < productNames.length; i++) {
+            for (int j = 0; j < sales[i].length; j++) {
+                productTotals[i] += sales[i][j]; // 63, 37, 53
+            }
+        }
+    }
+
+    @Override
+    public int GetTotalProductsSold() {
+        int total = 0;
+        for (int t : productTotals) total += t; // 63 + 37 + 53 = 153
+        return total;
+    }
+
+    @Override
+    public double GetAverageProductSold() {
+        return (double) GetTotalProductsSold() / 9; // 153 / 9 = 17.0
+    }
+
+    @Override
+    public String GetMostPopularProduct() {
+        int maxIndex = 0;
+        for (int i = 1; i < productTotals.length; i++) {
+            if (productTotals[i] > productTotals[maxIndex]) maxIndex = i;
+        }
+        return productNames[maxIndex] + "(" + productTotals[maxIndex] + ")";
+    }
+}
+
+productApp
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class ProductApp extends JFrame {
+    private JTextField txtCustomerName;
+    private JComboBox<String> cmbProduct;
+    private JTextField txtPrice;
+    private JButton btnProcess;
+
+    public ProductApp() {
+        setTitle("Product App");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(500, 300);
+        setLocationRelativeTo(null);
+
+        JMenuBar menuBar = new JMenuBar();
+        JMenu fileMenu = new JMenu("File");
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+        fileMenu.add(exitItem);
+
+        JMenu toolsMenu = new JMenu("Tools");
+        JMenuItem processItem = new JMenuItem("Process");
+        processItem.addActionListener(e -> processSale());
+        JMenuItem clearItem = new JMenuItem("Clear");
+        clearItem.addActionListener(e -> clearForm());
+        toolsMenu.add(processItem);
+        toolsMenu.add(clearItem);
+
+        menuBar.add(fileMenu);
+        menuBar.add(toolsMenu);
+        setJMenuBar(menuBar);
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        txtCustomerName = new JTextField(20);
+        cmbProduct = new JComboBox<>(new String[]{
+            "Cozy Nights Monarch", "Restonic Barbados", "Sealy Phuket"});
+        txtPrice = new JTextField(20);
+        btnProcess = new JButton("PROCESS");
+        btnProcess.addActionListener(e -> processSale());
+
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Customer Name:"), gbc);
+        gbc.gridx = 1; panel.add(txtCustomerName, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Select Product:"), gbc);
+        gbc.gridx = 1; panel.add(cmbProduct, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; panel.add(new JLabel("Enter Price:"), gbc);
+        gbc.gridx = 1; panel.add(txtPrice, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; panel.add(btnProcess, gbc);
+
+        add(panel);
+    }
+
+    private void processSale() {
+        String customerName = txtCustomerName.getText().trim();
+        String priceText = txtPrice.getText().trim();
+        if (customerName.isEmpty() || priceText.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter customer name and price.");
+            return;
+        }
+        double price;
+        try { price = Double.parseDouble(priceText); }
+        catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Price must be a number.");
+            return;
+        }
+
+        String product = (String) cmbProduct.getSelectedItem();
+        ProductCalculations calc = new ProductCalculations(price);
+        double vat = calc.GetVat();
+        double commission = calc.GetCommission();
+        double total = calc.GetTotal();
+
+        String message = "Customer Name: " + customerName
+                + "\nProduct: " + product
+                + "\nVAT: R " + vat
+                + "\nCOMMISSION: R " + commission
+                + "\nTOTAL: R " + total;
+        JOptionPane.showMessageDialog(this, message, "Message", JOptionPane.INFORMATION_MESSAGE);
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("data.txt", true))) {
+            writer.write("DATA LOG\n************************\n");
+            writer.write("Customer Name: " + customerName + "\n");
+            writer.write("Product: " + product + "\n");
+            writer.write("VAT: R " + vat + "\n");
+            writer.write("COMMISSION: R " + commission + "\n");
+            writer.write("TOTAL: R " + total + "\n");
+            writer.write("************************\n");
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Error saving to data.txt: " + ex.getMessage());
+        }
+    }
+
+    private void clearForm() {
+        txtCustomerName.setText("");
+        txtPrice.setText("");
+        cmbProduct.setSelectedIndex(0);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new ProductApp().setVisible(true));
+    }
+}
+ProductCalaculations 
+
+public class ProductCalculations implements IProductCalculations {
+    private double price;
+
+    public ProductCalculations(double price) {
+        this.price = price;
+    }
+
+    @Override
+    public double GetVat() { return price * 0.15; }
+
+    @Override
+    public double GetCommission() { return price * 0.05; }
+
+    @Override
+    public double GetTotal() { return price + GetVat() + GetCommission(); }
+}
+
+ProductApp
+
+txtCustomerName = new JTextField("Joe Bloggs", 20);
+cmbProduct = new JComboBox<>(new String[]{
+    "Cozy Nights Monarch", "Restonic Barbados", "Sealy Phuket"});
+cmbProduct.setSelectedIndex(0); // 0 = Cozy Nights Monarch
+txtPrice = new JTextField("3500", 20);
+
+ProductCalculations
+
+public class ProductCalculations implements IProductCalculations {
+    private double price; // Example value used: 3500
+
+    public ProductCalculations(double price) {
+        this.price = price;
+    }
+
+    @Override
+    public double GetVat() { return price * 0.15; } // 3500 * 0.15 = 525.0
+
+    @Override
+    public double GetCommission() { return price * 0.05; } // 3500 * 0.05 = 175.0
+
+    @Override
+    public double GetTotal() { return price + GetVat() + GetCommission(); } // 3500+525+175 = 4200.0
+}
+
+ProductCalculations.Test
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class ProductCalculationsTest {
+    @Test
+    public void GetVat_WithValidData_ReturnsCorrectValue() {
+        // Price = 3500, Expected VAT = 525.0
+        assertEquals(525.0, new ProductCalculations(3500).GetVat(), 0.001);
+    }
+
+    @Test
+    public void GetTotal_WithValidData_ReturnsCorrectValue() {
+        // Price = 3500, Expected Total = 4200.0
+        assertEquals(4200.0, new ProductCalculations(3500).GetTotal(), 0.001);
+    }
+}
